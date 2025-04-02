@@ -43,8 +43,13 @@ interface Game {
   overallOdds: number;
 }
 
+// Use a CORS proxy for web version, direct API for native
+const API_BASE_URL = Platform.OS === 'web' 
+  ? 'https://corsproxy.io/?https://api.luckyalgo.com' 
+  : 'https://api.luckyalgo.com';
+
 const api = axios.create({
-  baseURL: 'https://api.luckyalgo.com',
+  baseURL: API_BASE_URL,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
@@ -76,9 +81,19 @@ export default function LotteryGames() {
       }));
       const sortedGames = processedGames.sort((a: Game, b: Game) => b.luckyAlgoScore - a.luckyAlgoScore);
       setGames(sortedGames);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching games:', err);
-      setError('Unable to load games. Please try again later.');
+      
+      // Check if it's likely a CORS error
+      const isCorsError = err.message?.includes('Network Error') || 
+                          err.message?.includes('CORS') ||
+                          err.message?.includes('Cross-Origin Request Blocked');
+      
+      if (isCorsError && Platform.OS === 'web') {
+        setError('Unable to access the API due to CORS restrictions. This typically only affects web development. The native app should work properly.');
+      } else {
+        setError('Unable to load games. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
